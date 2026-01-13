@@ -13,9 +13,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Debug: log apa yang diterima
+    console.log('Login attempt:', { name, password })
+
     const user = await prisma.employee.findFirst({
       where: {
-        name,
+        name: {
+          equals: name,
+          mode: 'insensitive', // Case-insensitive
+        },
         password,
         active: true,
       },
@@ -25,6 +31,8 @@ export async function POST(request: NextRequest) {
         role: true,
       },
     })
+
+    console.log('User found:', user) // Debug log
 
     if (!user) {
       return NextResponse.json(
