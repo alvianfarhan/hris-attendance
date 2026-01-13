@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id             String   @id @default(cuid())
+  name           String
+  password       String
+  role           String   @default("EMPLOYEE")
+  nik            String?
+  bpjs           String?
+  phone          String?
+  email          String?
+  position       String?
+  department     String?
+  employmentType String?
+  location       String?
+  joinDate       DateTime?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  attendances    Attendance[]
+  leaveRequests  LeaveRequest[]
+  leaveQuotas    LeaveQuota[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Attendance {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employeeName String
+  date         DateTime  @default(now())
+  checkIn      String
+  checkOut     String?
+  isLate       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([date])
+}
+
+model LeaveRequest {
+  id              String    @id @default(cuid())
+  employeeId      String
+  employeeName    String
+  startDate       DateTime
+  endDate         DateTime
+  leaveType       String
+  reason          String?
+  status          String    @default("Pending")
+  approvedBy      String?
+  approvalDate    DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  employee        Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model LeaveQuota {
+  id         String   @id @default(cuid())
+  employeeId String
+  year       Int
+  totalQuota Int
+  used       Int      @default(0)
+  remaining  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year])
+  @@index([employeeId])
+  @@index([year])
+}

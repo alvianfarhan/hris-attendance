@@ -1,86 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getEmployeeQuota,
-  getAllQuotas,
-  saveQuotas,
-  LeaveQuota,
-} from '../fileStore'
+import { prisma } from '@/lib/prisma'
 
-// GET: ambil quota karyawan
+// GET: get employee leave quota
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const employeeId = url.searchParams.get('employeeId')
     const year = url.searchParams.get('year')
 
-    if (!employeeId || !year) {
+    if (!employeeId) {
       return NextResponse.json(
-        { error: 'employeeId dan year wajib diisi' },
+        { error: 'Employee ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const quota = await getEmployeeQuota(employeeId, parseInt(year))
+    const currentYear = year ? parseInt(year) : new Date().getFullYear()
+
+    const quota = await prisma.leaveQuota.findFirst({
+      where: {
+        employeeId,
+        year: currentYear,
+      },
+    })
 
     if (!quota) {
       return NextResponse.json(
-        { error: 'Quota tidak ditemukan' },
+        { error: 'Kuota cuti tidak ditemukan' },
         { status: 404 }
       )
     }
 
     return NextResponse.json({ quota })
-  } catch (e) {
-    console.error('Get quota error:', e)
+  } catch (error) {
+    console.error('Get leave quota error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengambil quota' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
 }
 
-// POST: buat/set quota karyawan (admin only)
+// POST: create/update leave quota
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { employeeId, year, totalQuota } = body
 
-    if (!employeeId || !year || totalQuota === undefined) {
+    if (!employeeId || !year || !totalQuota) {
       return NextResponse.json(
-        { error: 'Field wajib tidak boleh kosong' },
+        { error: 'Data tidak lengkap' },
         { status: 400 }
       )
     }
 
-    const quotas = await getAllQuotas()
-    const idx = quotas.findIndex(
-      (q) => q.employeeId === employeeId && q.year === year
-    )
+    // Check if quota exists
+    const existingQuota = await prisma.leaveQuota.findFirst({
+      where: {
+        employeeId,
+        year,
+      },
+    })
 
-    const newQuota: LeaveQuota = {
-      employeeId,
-      year,
-      totalQuota,
-      used: 0,
-      remaining: totalQuota,
-    }
+    if (existingQuota) {
+      // Update existing quota
+      const updatedQuota = await prisma.leaveQuota.update({
+        where: { id: existingQuota.id },
+        data: {
+          totalQuota,
+          remaining: totalQuota - existingQuota.used,
+        },
+      })
 
-    if (idx !== -1) {
-      quotas[idx] = newQuota
+      return NextResponse.json({ success: true, quota: updatedQuota })
     } else {
-      quotas.push(newQuota)
+      // Create new quota
+      const newQuota = await prisma.leaveQuota.create({
+        data: {
+          employeeId,
+          year,
+          totalQuota,
+          used: 0,
+          remaining: totalQuota,
+        },
+      })
+
+      return NextResponse.json(
+        { success: true, quota: newQuota },
+        { status: 201 }
+      )
     }
-
-    await saveQuotas(quotas)
-
+  } catch (error) {
+    console.error('Create/update leave quota error:', error)
     return NextResponse.json(
-      { success: true, quota: newQuota },
-      { status: 201 }
-    )
-  } catch (e) {
-    console.error('Post quota error:', e)
-    return NextResponse.json(
-      { error: 'Server error saat set quota' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

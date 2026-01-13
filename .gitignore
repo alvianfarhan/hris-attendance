@@ -42,3 +42,19 @@ next-env.d.ts
 
 # data files (PENTING untuk production)
 /data/*.json
+/app/generated/prisma
+
+# .gitignore
+.env
+.env*.local
+
+# local env files
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# prisma
+prisma/dev.db
+prisma/dev.db-journal

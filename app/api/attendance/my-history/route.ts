@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllAttendance } from '../fileStore'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,26 +8,28 @@ export async function GET(request: NextRequest) {
 
     if (!employeeId) {
       return NextResponse.json(
-        { error: 'employeeId diperlukan' },
+        { error: 'Employee ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const all = await getAllAttendance()
+    // Get last 30 days
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const records = all
-      .filter((r) => r.employeeId === employeeId)
-      .sort((a, b) => {
-        if (a.date < b.date) return 1
-        if (a.date > b.date) return -1
-        return 0
-      })
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        employeeId,
+        date: { gte: thirtyDaysAgo },
+      },
+      orderBy: { date: 'desc' },
+    })
 
-    return NextResponse.json({ records })
-  } catch (e) {
-    console.error('My history error:', e)
+    return NextResponse.json({ attendances })
+  } catch (error) {
+    console.error('Get my attendance history error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengambil riwayat' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

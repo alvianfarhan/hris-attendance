@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllAttendance, saveAttendance } from '../fileStore'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,64 +7,63 @@ export async function POST(request: NextRequest) {
     const { employeeId } = body
 
     if (!employeeId) {
-      return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 })
-    }
-
-    const now = new Date()
-    const dateStr = now.toISOString().split('T')[0]
-    const hour = now.getHours()
-
-    if (hour < 18) {
       return NextResponse.json(
-        { error: 'Belum boleh check-out (minimal jam 18:00)' },
+        { error: 'Employee ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const all = await getAllAttendance()
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const index = all.findIndex(
-      (r) => r.employeeId === employeeId && r.date === dateStr
-    )
+    // Cari attendance hari ini
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    })
 
-    if (index === -1) {
+    if (!attendance) {
       return NextResponse.json(
         { error: 'Anda belum check-in hari ini' },
         { status: 400 }
       )
     }
 
-    const existing = all[index]
-
-    if (existing.checkOut) {
+    if (attendance.checkOut) {
       return NextResponse.json(
         { error: 'Anda sudah check-out hari ini' },
         { status: 400 }
       )
     }
 
-    const timeStr = now.toLocaleTimeString('id-ID', {
+    const checkOutTime = now.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     })
 
-    const updatedRecord = { ...existing, checkOut: timeStr }
-    const updatedAll = [...all]
-    updatedAll[index] = updatedRecord
-
-    await saveAttendance(updatedAll)
+    const updatedAttendance = await prisma.attendance.update({
+      where: { id: attendance.id },
+      data: { checkOut: checkOutTime },
+    })
 
     return NextResponse.json({
       success: true,
-      record: updatedRecord,
+      attendance: updatedAttendance,
       message: 'Check-out berhasil',
     })
-  } catch (e) {
-    console.error('Check-out error:', e)
+  } catch (error) {
+    console.error('Check-out error:', error)
     return NextResponse.json(
-      { error: 'Server error saat check-out' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

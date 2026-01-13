@@ -1,267 +1,198 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  getAllLeaves,
-  saveLeaves,
-  getEmployeeQuota,
-  getAllQuotas,
-  saveQuotas,
-  LeaveRequest,
-} from './fileStore'
+import { prisma } from '@/lib/prisma'
 
-// GET: list semua leave requests (admin view) atau filter by employeeId
+// GET: list leave requests
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const employeeId = url.searchParams.get('employeeId')
     const status = url.searchParams.get('status')
 
-    const leaves = await getAllLeaves()
-
-    let filtered = leaves
+    const where: any = {}
 
     if (employeeId) {
-      filtered = filtered.filter((l) => l.employeeId === employeeId)
+      where.employeeId = employeeId
     }
 
     if (status) {
-      filtered = filtered.filter((l) => l.status === status)
+      where.status = status
     }
 
-    // Sort by createdAt descending (terbaru dulu)
-    filtered.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    const leaves = await prisma.leaveRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        employee: {
+          select: {
+            name: true,
+            position: true,
+            department: true,
+          },
+        },
+      },
+    })
 
-    return NextResponse.json({ leaves: filtered })
-  } catch (e) {
-    console.error('Get leaves error:', e)
+    return NextResponse.json({ leaves })
+  } catch (error) {
+    console.error('Get leaves error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengambil data cuti' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
 }
 
-// POST: ajukan cuti/izin/sakit baru
+// POST: create leave request
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { employeeId, employeeName, startDate, endDate, leaveType, reason } =
-      body
-
-    if (!employeeId || !startDate || !endDate || !leaveType) {
-      return NextResponse.json(
-        { error: 'Field wajib tidak boleh kosong' },
-        { status: 400 }
-      )
-    }
-
-    // Validasi tanggal
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-
-    if (end < start) {
-      return NextResponse.json(
-        { error: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai' },
-        { status: 400 }
-      )
-    }
-
-    // Check kuota kalau tipe "Cuti"
-    if (leaveType === 'Cuti') {
-      const year = start.getFullYear()
-      const quota = await getEmployeeQuota(employeeId, year)
-
-      if (!quota) {
-        return NextResponse.json(
-          { error: 'Kuota cuti belum ditetapkan untuk tahun ini' },
-          { status: 400 }
-        )
-      }
-
-      // Hitung jumlah hari yang diajukan
-      const diffTime = end.getTime() - start.getTime()
-      const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-
-      if (quota.remaining < daysCount) {
-        return NextResponse.json(
-          { 
-            error: `Kuota cuti tidak cukup. Sisa: ${quota.remaining} hari, diajukan: ${daysCount} hari` 
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    const newLeave: LeaveRequest = {
-      id: `leave${Date.now()}`,
+    const {
       employeeId,
       employeeName,
       startDate,
       endDate,
       leaveType,
-      reason: reason || '',
-      status: 'Pending',
-      createdAt: new Date().toISOString(),
+      reason,
+    } = body
+
+    if (!employeeId || !employeeName || !startDate || !endDate || !leaveType) {
+      return NextResponse.json(
+        { error: 'Data tidak lengkap' },
+        { status: 400 }
+      )
     }
 
-    const leaves = await getAllLeaves()
-    const updated = [...leaves, newLeave]
-    await saveLeaves(updated)
+    // Hitung jumlah hari
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const diffTime = Math.abs(end.getTime() - start.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
 
-    console.log('New leave request created:', newLeave)
+    // Cek quota kalau tipe Cuti
+    if (leaveType === 'Cuti') {
+      const currentYear = new Date().getFullYear()
+      const quota = await prisma.leaveQuota.findFirst({
+        where: {
+          employeeId,
+          year: currentYear,
+        },
+      })
+
+      if (!quota) {
+        return NextResponse.json(
+          { error: 'Kuota cuti belum tersedia' },
+          { status: 400 }
+        )
+      }
+
+      if (quota.remaining < diffDays) {
+        return NextResponse.json(
+          { error: `Kuota cuti tidak mencukupi. Sisa: ${quota.remaining} hari` },
+          { status: 400 }
+        )
+      }
+    }
+
+    const leave = await prisma.leaveRequest.create({
+      data: {
+        employeeId,
+        employeeName,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        leaveType,
+        reason: reason || null,
+        status: 'Pending',
+      },
+    })
 
     return NextResponse.json(
-      { success: true, leave: newLeave },
+      { success: true, leave },
       { status: 201 }
     )
-  } catch (e) {
-    console.error('Post leave error:', e)
+  } catch (error) {
+    console.error('Create leave error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengajukan cuti' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
 }
 
-// PUT: approve/reject leave request (admin only)
+// PUT: update leave request (approve/reject)
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
     const { id, status, approvedBy, rejectionReason } = body
 
-    console.log('PUT request body:', body)
-
     if (!id || !status) {
       return NextResponse.json(
-        { error: 'ID dan status wajib diisi' },
+        { error: 'Data tidak lengkap' },
         { status: 400 }
       )
     }
 
-    if (!['Pending', 'Approved', 'Rejected'].includes(status)) {
+    if (!['Approved', 'Rejected'].includes(status)) {
       return NextResponse.json(
         { error: 'Status tidak valid' },
         { status: 400 }
       )
     }
 
-    const leaves = await getAllLeaves()
-    const idx = leaves.findIndex((l) => l.id === id)
+    // Get leave request
+    const leave = await prisma.leaveRequest.findUnique({
+      where: { id },
+    })
 
-    if (idx === -1) {
+    if (!leave) {
       return NextResponse.json(
         { error: 'Pengajuan cuti tidak ditemukan' },
         { status: 404 }
       )
     }
 
-    const leave = leaves[idx]
+    // Update leave request
+    const updatedLeave = await prisma.leaveRequest.update({
+      where: { id },
+      data: {
+        status,
+        approvedBy: approvedBy || null,
+        approvalDate: new Date(),
+        rejectionReason: rejectionReason || null,
+      },
+    })
 
-    // Cek apakah sudah di-approve/reject sebelumnya
-    if (leave.status !== 'Pending' && status !== 'Pending') {
-      return NextResponse.json(
-        { error: 'Pengajuan ini sudah diproses sebelumnya' },
-        { status: 400 }
-      )
-    }
-
-    const updated = [...leaves]
-
-    updated[idx] = {
-      ...leave,
-      status,
-      approvedBy: status === 'Approved' ? approvedBy : leave.approvedBy,
-      approvalDate: status !== 'Pending' ? new Date().toISOString() : leave.approvalDate,
-      rejectionReason: status === 'Rejected' ? rejectionReason : undefined,
-    }
-
-    console.log('Leave status updated:', updated[idx])
-
-    await saveLeaves(updated)
-
-    // Kalau approved & tipe Cuti, kurangi kuota
+    // Update quota kalau approved dan tipe Cuti
     if (status === 'Approved' && leave.leaveType === 'Cuti') {
       const start = new Date(leave.startDate)
       const end = new Date(leave.endDate)
-      const year = start.getFullYear()
-      
-      const quotas = await getAllQuotas()
-      const quotaIdx = quotas.findIndex(
-        (q) => q.employeeId === leave.employeeId && q.year === year
-      )
+      const diffTime = Math.abs(end.getTime() - start.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
 
-      if (quotaIdx !== -1) {
-        // Hitung jumlah hari (inklusif start dan end)
-        const diffTime = end.getTime() - start.getTime()
-        const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      const currentYear = new Date().getFullYear()
 
-        console.log('Mengurangi kuota:', {
+      const quota = await prisma.leaveQuota.findFirst({
+        where: {
           employeeId: leave.employeeId,
-          year,
-          daysCount,
-          startDate: leave.startDate,
-          endDate: leave.endDate,
-          quotaBefore: { ...quotas[quotaIdx] },
-        })
+          year: currentYear,
+        },
+      })
 
-        quotas[quotaIdx].used += daysCount
-        quotas[quotaIdx].remaining -= daysCount
-
-        console.log('Quota setelah update:', quotas[quotaIdx])
-
-        await saveQuotas(quotas)
-      } else {
-        console.warn('WARNING: Quota tidak ditemukan untuk:', {
-          employeeId: leave.employeeId,
-          year,
+      if (quota) {
+        await prisma.leaveQuota.update({
+          where: { id: quota.id },
+          data: {
+            used: quota.used + diffDays,
+            remaining: quota.remaining - diffDays,
+          },
         })
       }
     }
 
-    return NextResponse.json({ success: true, leave: updated[idx] })
-  } catch (e) {
-    console.error('Put leave error:', e)
+    return NextResponse.json({ success: true, leave: updatedLeave })
+  } catch (error) {
+    console.error('Update leave error:', error)
     return NextResponse.json(
-      { error: 'Server error saat approve/reject cuti' },
-      { status: 500 }
-    )
-  }
-}
-
-// DELETE: hapus pengajuan cuti (opsional, untuk admin)
-export async function DELETE(request: NextRequest) {
-  try {
-    const url = new URL(request.url)
-    const id = url.searchParams.get('id')
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'ID wajib diisi' },
-        { status: 400 }
-      )
-    }
-
-    const leaves = await getAllLeaves()
-    const exists = leaves.some((l) => l.id === id)
-
-    if (!exists) {
-      return NextResponse.json(
-        { error: 'Pengajuan cuti tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    const filtered = leaves.filter((l) => l.id !== id)
-    await saveLeaves(filtered)
-
-    console.log('Leave deleted:', id)
-
-    return NextResponse.json({ success: true })
-  } catch (e) {
-    console.error('Delete leave error:', e)
-    return NextResponse.json(
-      { error: 'Server error saat menghapus cuti' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

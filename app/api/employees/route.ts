@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllEmployees, saveEmployees, EmployeeRecord } from './fileStore'
+import { prisma } from '@/lib/prisma'
 
 // GET: list semua karyawan
 export async function GET() {
-  const employees = await getAllEmployees()
-  return NextResponse.json({ employees })
+  try {
+    const employees = await prisma.employee.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        nik: true,
+        bpjs: true,
+        phone: true,
+        email: true,
+        position: true,
+        department: true,
+        employmentType: true,
+        location: true,
+        joinDate: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json({ employees })
+  } catch (error) {
+    console.error('Get employees error:', error)
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500 }
+    )
+  }
 }
 
 // POST: tambah karyawan baru
@@ -33,38 +59,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const normalizedRole: 'EMPLOYEE' | 'ADMIN' =
-      role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE'
-
-    const all = await getAllEmployees()
-
-    const newEmployee: EmployeeRecord = {
-      id: `emp${Date.now()}`,
-      name,
-      password,
-      role: normalizedRole,
-      nik,
-      bpjs,
-      phone,
-      email,
-      position,
-      department,
-      employmentType,
-      location,
-      joinDate,
-    }
-
-    const updated = [...all, newEmployee]
-    await saveEmployees(updated)
+    const newEmployee = await prisma.employee.create({
+      data: {
+        name,
+        password,
+        role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
+        nik: nik || null,
+        bpjs: bpjs || null,
+        phone: phone || null,
+        email: email || null,
+        position: position || null,
+        department: department || null,
+        employmentType: employmentType || null,
+        location: location || null,
+        joinDate: joinDate ? new Date(joinDate) : null,
+      },
+    })
 
     return NextResponse.json(
       { success: true, employee: newEmployee },
       { status: 201 }
     )
-  } catch (e) {
-    console.error('Add employee error:', e)
+  } catch (error) {
+    console.error('Add employee error:', error)
     return NextResponse.json(
-      { error: 'Server error saat menambah karyawan' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
@@ -91,56 +110,39 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'ID karyawan wajib diisi' },
+        { error: 'ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const all = await getAllEmployees()
-    const idx = all.findIndex((e) => e.id === id)
+    const updatedEmployee = await prisma.employee.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
+        nik: nik || null,
+        bpjs: bpjs || null,
+        phone: phone || null,
+        email: email || null,
+        position: position || null,
+        department: department || null,
+        employmentType: employmentType || null,
+        location: location || null,
+        joinDate: joinDate ? new Date(joinDate) : null,
+      },
+    })
 
-    if (idx === -1) {
-      return NextResponse.json(
-        { error: 'Karyawan tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    const current = all[idx]
-
-    const normalizedRole: 'EMPLOYEE' | 'ADMIN' =
-      role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE'
-
-    const updatedEmp: EmployeeRecord = {
-      ...current,
-      name: name ?? current.name,
-      role: normalizedRole ?? current.role,
-      nik: nik ?? current.nik,
-      bpjs: bpjs ?? current.bpjs,
-      phone: phone ?? current.phone,
-      email: email ?? current.email,
-      position: position ?? current.position,
-      department: department ?? current.department,
-      employmentType: employmentType ?? current.employmentType,
-      location: location ?? current.location,
-      joinDate: joinDate ?? current.joinDate,
-    }
-
-    const updatedAll = [...all]
-    updatedAll[idx] = updatedEmp
-    await saveEmployees(updatedAll)
-
-    return NextResponse.json({ success: true, employee: updatedEmp })
-  } catch (e) {
-    console.error('Update employee error:', e)
+    return NextResponse.json({ success: true, employee: updatedEmployee })
+  } catch (error) {
+    console.error('Update employee error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengubah karyawan' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
 }
 
-// DELETE: hapus karyawan berdasarkan ID
+// DELETE: hapus karyawan (soft delete)
 export async function DELETE(request: NextRequest) {
   try {
     const url = new URL(request.url)
@@ -148,29 +150,21 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'ID karyawan wajib diisi' },
+        { error: 'ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const all = await getAllEmployees()
-    const exists = all.some((e) => e.id === id)
-
-    if (!exists) {
-      return NextResponse.json(
-        { error: 'Karyawan tidak ditemukan' },
-        { status: 404 }
-      )
-    }
-
-    const filtered = all.filter((e) => e.id !== id)
-    await saveEmployees(filtered)
+    await prisma.employee.update({
+      where: { id },
+      data: { active: false },
+    })
 
     return NextResponse.json({ success: true })
-  } catch (e) {
-    console.error('Delete employee error:', e)
+  } catch (error) {
+    console.error('Delete employee error:', error)
     return NextResponse.json(
-      { error: 'Server error saat menghapus karyawan' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { AttendanceRecord, getAllAttendance, saveAttendance } from '../fileStore'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,61 +7,64 @@ export async function POST(request: NextRequest) {
     const { employeeId, employeeName } = body
 
     if (!employeeId || !employeeName) {
-      return NextResponse.json({ error: 'Data tidak lengkap' }, { status: 400 })
-    }
-
-    const now = new Date()
-    const dateStr = now.toISOString().split('T')[0]
-    const hour = now.getHours()
-    const minute = now.getMinutes()
-
-    const all = await getAllAttendance()
-
-    const existing = all.find(
-      (r) => r.employeeId === employeeId && r.date === dateStr
-    )
-    if (existing) {
       return NextResponse.json(
-        { error: 'Anda sudah check-in hari ini' },
+        { error: 'Data tidak lengkap' },
         { status: 400 }
       )
     }
 
-    let isLate = false
-    if (hour > 9 || (hour === 9 && minute > 15)) {
-      isLate = true
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Cek apakah sudah check-in hari ini
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+    })
+
+    if (existingAttendance) {
+      return NextResponse.json(
+        { error: 'Anda sudah melakukan check-in hari ini' },
+        { status: 400 }
+      )
     }
 
-    const timeStr = now.toLocaleTimeString('id-ID', {
+    const checkInTime = now.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     })
 
-    const record: AttendanceRecord = {
-      id: `att-${Date.now()}`,
-      employeeId,
-      employeeName,
-      date: dateStr,
-      checkIn: timeStr,
-      isLate,
-    }
+    // Cek keterlambatan (setelah jam 09:00)
+    const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 0)
 
-    const updated = [...all, record]
-    await saveAttendance(updated)
+    const attendance = await prisma.attendance.create({
+      data: {
+        employeeId,
+        employeeName,
+        date: now,
+        checkIn: checkInTime,
+        isLate,
+      },
+    })
 
     return NextResponse.json({
       success: true,
-      record,
-      message: isLate
-        ? 'Check-in berhasil, tetapi Anda terlambat'
-        : 'Check-in tepat waktu',
+      attendance,
+      message: isLate ? 'Check-in berhasil (Terlambat)' : 'Check-in berhasil',
     })
-  } catch (e) {
-    console.error('Check-in error:', e)
+  } catch (error) {
+    console.error('Check-in error:', error)
     return NextResponse.json(
-      { error: 'Server error saat check-in' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }

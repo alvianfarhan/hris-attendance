@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllEmployees } from '../fileStore'
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,29 +8,41 @@ export async function GET(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'ID karyawan wajib diisi' },
+        { error: 'ID wajib diisi' },
         { status: 400 }
       )
     }
 
-    const all = await getAllEmployees()
-    const emp = all.find((e) => e.id === id)
+    const employee = await prisma.employee.findUnique({
+      where: { id, active: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        nik: true,
+        bpjs: true,
+        phone: true,
+        email: true,
+        position: true,
+        department: true,
+        employmentType: true,
+        location: true,
+        joinDate: true,
+      },
+    })
 
-    if (!emp) {
+    if (!employee) {
       return NextResponse.json(
         { error: 'Karyawan tidak ditemukan' },
         { status: 404 }
       )
     }
 
-    // jangan kirim password ke client
-    const { password, ...safe } = emp
-
-    return NextResponse.json({ employee: safe })
-  } catch (e) {
-    console.error('Get me error:', e)
+    return NextResponse.json({ employee })
+  } catch (error) {
+    console.error('Get employee detail error:', error)
     return NextResponse.json(
-      { error: 'Server error saat mengambil profil' },
+      { error: 'Server error' },
       { status: 500 }
     )
   }
