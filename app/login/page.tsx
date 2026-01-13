@@ -15,38 +15,37 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // Untuk login dengan password saja, kita perlu modifikasi logic
-      // Ambil semua employees dan cari yang match password
-      const res = await fetch('/api/employees')
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password: password.trim(),
+        }),
+      })
+
       const data = await res.json()
 
-      if (res.ok && data.employees) {
-        const found = data.employees.find((emp: any) => emp.password === password.trim())
-
-        if (!found) {
-          setError('Password salah')
-          setLoading(false)
-          return
-        }
-
+      if (res.ok && data.user) {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(
             'currentUser',
             JSON.stringify({
-              id: found.id,
-              name: found.name,
-              role: found.role,
+              id: data.user.id,
+              name: data.user.name,
+              role: data.user.role,
             })
           )
         }
 
-        if (found.role === 'ADMIN') {
+        if (data.user.role === 'ADMIN') {
           router.push('/admin')
         } else {
           router.push('/employee')
         }
       } else {
-        setError(data.error || 'Login gagal')
+        setError(data.error || 'Password salah')
       }
     } catch (err) {
       console.error('Login error:', err)

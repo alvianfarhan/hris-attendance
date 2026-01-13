@@ -4,38 +4,18 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, password } = body
+    const { password } = body
 
-    // DEBUG: Log input yang diterima
-    console.log('===== LOGIN DEBUG =====')
-    console.log('Input name:', name)
-    console.log('Input password:', password)
-    console.log('Input name length:', name?.length)
-    console.log('Input password length:', password?.length)
-
-    if (!name || !password) {
+    if (!password) {
       return NextResponse.json(
-        { error: 'Nama dan password wajib diisi' },
+        { error: 'Password wajib diisi' },
         { status: 400 }
       )
     }
 
-    // DEBUG: Cek semua users di database
-    const allUsers = await prisma.employee.findMany({
-      where: { active: true },
-      select: {
-        id: true,
-        name: true,
-        password: true,
-        role: true,
-      },
-    })
-    console.log('All users in DB:', allUsers)
-
-    // Query normal
+    // Cari user berdasarkan password saja
     const user = await prisma.employee.findFirst({
       where: {
-        name: name.trim(),
         password: password.trim(),
         active: true,
       },
@@ -46,12 +26,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log('User found:', user)
-    console.log('===== END DEBUG =====')
-
     if (!user) {
       return NextResponse.json(
-        { error: 'Nama atau password salah' },
+        { error: 'Password salah' },
         { status: 401 }
       )
     }
@@ -65,4 +42,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-//
