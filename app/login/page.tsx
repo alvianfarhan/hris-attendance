@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,32 +15,32 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          password: password.trim(),
-        }),
-      })
-
+      // Untuk login dengan password saja, kita perlu modifikasi logic
+      // Ambil semua employees dan cari yang match password
+      const res = await fetch('/api/employees')
       const data = await res.json()
 
-      if (res.ok && data.user) {
+      if (res.ok && data.employees) {
+        const found = data.employees.find((emp: any) => emp.password === password.trim())
+
+        if (!found) {
+          setError('Password salah')
+          setLoading(false)
+          return
+        }
+
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(
             'currentUser',
             JSON.stringify({
-              id: data.user.id,
-              name: data.user.name,
-              role: data.user.role,
+              id: found.id,
+              name: found.name,
+              role: found.role,
             })
           )
         }
 
-        if (data.user.role === 'ADMIN') {
+        if (found.role === 'ADMIN') {
           router.push('/admin')
         } else {
           router.push('/employee')
@@ -68,30 +67,12 @@ export default function LoginPage() {
             Absensi Kantor
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Masuk menggunakan nama dan password karyawan Anda.
+            Masuk menggunakan password karyawan Anda.
           </p>
         </div>
 
         <div className="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-[#F3C3D0] px-6 py-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Nama
-              </label>
-              <input
-                id="name"
-                type="text"
-                className="w-full rounded-xl border border-[#F3C3D0] bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#B32748] focus:ring-offset-1 transition"
-                placeholder="Masukkan nama"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-
             <div className="space-y-1.5">
               <label
                 htmlFor="password"
