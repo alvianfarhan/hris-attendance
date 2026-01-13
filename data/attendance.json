@@ -1,0 +1,65 @@
+[
+  {
+    "id": "att-1768222614056",
+    "employeeId": "emp002",
+    "employeeName": "Karyawan Satu",
+    "date": "2026-01-12",
+    "checkIn": "19.56.54",
+    "isLate": true,
+    "checkOut": "19.56.57"
+  },
+  {
+    "id": "att-1768222759471",
+    "employeeId": "emp003",
+    "employeeName": "Karyawan Dua",
+    "date": "2026-01-12",
+    "checkIn": "19.59.19",
+    "isLate": true,
+    "checkOut": "19.59.22"
+  },
+  {
+    "id": "att-1768224397393",
+    "employeeId": "emp1768224381727",
+    "employeeName": "Farhan",
+    "date": "2026-01-12",
+    "checkIn": "20.26.37",
+    "isLate": true,
+    "checkOut": "20.26.39"
+  },
+  {
+    "id": "att-1768225050708",
+    "employeeId": "emp1768225040403",
+    "employeeName": "Ilham",
+    "date": "2026-01-12",
+    "checkIn": "20.37.30",
+    "isLate": true,
+    "checkOut": "20.37.34"
+  },
+  {
+    "id": "att-1768235298424",
+    "employeeId": "emp1768235281522",
+    "employeeName": "Farhan",
+    "date": "2026-01-12",
+    "checkIn": "23.28.18",
+    "isLate": true,
+    "checkOut": "23.28.19"
+  },
+  {
+    "id": "att-1768235781354",
+    "employeeId": "emp1768235754594",
+    "employeeName": "Ivan",
+    "date": "2026-01-12",
+    "checkIn": "23.36.21",
+    "isLate": true,
+    "checkOut": "23.36.22"
+  },
+  {
+    "id": "att-1768236671798",
+    "employeeId": "emp1768236524548",
+    "employeeName": "Testing",
+    "date": "2026-01-12",
+    "checkIn": "23.51.11",
+    "isLate": true,
+    "checkOut": "23.51.14"
+  }
+]

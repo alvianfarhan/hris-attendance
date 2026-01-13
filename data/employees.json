@@ -1,0 +1,25 @@
+[
+  {
+    "id": "emp001",
+    "name": "Admin HR",
+    "password": "admin123",
+    "role": "ADMIN",
+    "nik": "3173XXXXXXXXXXXX",
+    "bpjs": "0000000000000"
+  },
+  {
+    "id": "emp1768236524548",
+    "name": "Testing",
+    "password": "kocak124",
+    "role": "EMPLOYEE",
+    "nik": "29999300",
+    "bpjs": "2888899",
+    "phone": "08571827281",
+    "email": "kocak@rekametir.com",
+    "position": "CEO",
+    "department": "CEO",
+    "employmentType": "Paruh waktu",
+    "location": "CEO",
+    "joinDate": "2026-01-02"
+  }
+]

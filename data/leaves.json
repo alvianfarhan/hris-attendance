@@ -1,0 +1,54 @@
+[
+  {
+    "id": "leave1768237654304",
+    "employeeId": "emp1768236524548",
+    "employeeName": "Testing",
+    "startDate": "2026-01-17",
+    "endDate": "2026-01-16",
+    "leaveType": "Cuti",
+    "reason": "Nonton konser",
+    "status": "Approved",
+    "createdAt": "2026-01-12T17:07:34.304Z",
+    "approvedBy": "Admin HR",
+    "approvalDate": "2026-01-12T17:07:47.357Z"
+  },
+  {
+    "id": "leave1768237700507",
+    "employeeId": "emp1768236524548",
+    "employeeName": "Testing",
+    "startDate": "2026-01-16",
+    "endDate": "2026-01-17",
+    "leaveType": "Sakit",
+    "reason": "Sakit",
+    "status": "Approved",
+    "createdAt": "2026-01-12T17:08:20.507Z",
+    "approvedBy": "Admin HR",
+    "approvalDate": "2026-01-12T17:08:32.126Z"
+  },
+  {
+    "id": "leave1768237747697",
+    "employeeId": "emp1768236524548",
+    "employeeName": "Testing",
+    "startDate": "2026-01-03",
+    "endDate": "2026-01-01",
+    "leaveType": "Sakit",
+    "reason": "sss",
+    "status": "Approved",
+    "createdAt": "2026-01-12T17:09:07.697Z",
+    "approvedBy": "Admin HR",
+    "approvalDate": "2026-01-12T17:10:28.062Z"
+  },
+  {
+    "id": "leave1768237963254",
+    "employeeId": "emp1768236524548",
+    "employeeName": "Testing",
+    "startDate": "2026-01-23",
+    "endDate": "2026-01-26",
+    "leaveType": "Cuti",
+    "reason": "aw",
+    "status": "Approved",
+    "createdAt": "2026-01-12T17:12:43.254Z",
+    "approvedBy": "Admin HR",
+    "approvalDate": "2026-01-12T17:12:54.723Z"
+  }
+]
